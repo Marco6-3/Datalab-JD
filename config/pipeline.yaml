@@ -1,0 +1,13 @@
+schema:
+  url: str
+  title: str
+  company: str
+  city: str
+  publish_date: datetime
+  salary_min_k: float
+  salary_max_k: float
+  salary_months: float
+  salary_is_negotiable: bool
+  exp_min_years: float
+  exp_max_years: float
+  edu_level: str

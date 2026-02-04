@@ -1,0 +1,5 @@
+url,title,company,city,publish_date,salary_text,exp_text,edu_text
+https://jobs.example.com/1,Data Engineer,ACME,Shenzhen,2025-10-01,20-30K 13薪,3-5年,本科
+https://jobs.example.com/1,Data Engineer,ACME,Shenzhen,2025-10-01,20-30K 13薪,3-5年,本科
+,ML Engineer,ByteData,Shanghai,2025-09-15,面议,经验不限,硕士
+,ML Engineer,ByteData,Shanghai,2025-09-15,面议,经验不限,硕士

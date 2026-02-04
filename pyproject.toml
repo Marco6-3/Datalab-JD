@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datalab"
+version = "0.1.0"
+description = "A maintainable data cleaning pipeline with parquet output and quality reporting."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "pyarrow>=15.0",
+  "python-dotenv>=1.0",
+  "pyyaml>=6.0",
+  "openpyxl>=3.1",
+  "requests>=2.32",
+  "beautifulsoup4>=4.12"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
