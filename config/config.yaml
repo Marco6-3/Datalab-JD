@@ -1,0 +1,37 @@
+clean:
+  input: data/raw
+  output: data/clean
+  topk: 5
+  log_level: INFO
+  schema: {}
+
+crawl:
+  seed_url: https://www.liepin.com/career/dianziruanjian/pn{page}/
+  pages: 2
+  output: data/raw/crawled_jobs.csv
+  sleep_sec: 1.0
+  timeout_sec: 20.0
+  log_level: INFO
+  selectors:
+    card: .job-card-pc-container
+    url: .job-detail-box > a[href]
+    title: .job-title-box .ellipsis-1
+    company: .company-name
+    city: .job-dq-box .ellipsis-1
+    salary_text: .job-salary
+    exp_text: .job-labels-box .labels-tag:nth-of-type(1)
+    edu_text: .job-labels-box .labels-tag:nth-of-type(2)
+
+analyze:
+  input: data/clean/cleaned.parquet
+  output: data/clean/jd_market_report.md
+  log_level: INFO
+
+oneclick:
+  url: https://www.liepin.com/career/dianziruanjian/
+  pages: 1
+  output_dir: data/oneclick
+  sleep_sec: 1.0
+  timeout_sec: 20.0
+  topk: 5
+  log_level: INFO

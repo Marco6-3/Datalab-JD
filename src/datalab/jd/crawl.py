@@ -11,6 +11,7 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup, Tag
 
+from datalab.config import ConfigValidationError, resolve_section_config
 from datalab.logging_utils import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,19 @@ DEFAULT_SELECTORS = {
     "salary_text": ".salary, .job-salary",
     "exp_text": ".exp, .experience",
     "edu_text": ".edu, .education",
+}
+
+SITE_SELECTOR_PRESETS = {
+    "liepin.com": {
+        "card": ".job-card-pc-container",
+        "url": ".job-detail-box > a[href]",
+        "title": ".job-title-box .ellipsis-1",
+        "company": ".company-name",
+        "city": ".job-dq-box .ellipsis-1",
+        "salary_text": ".job-salary",
+        "exp_text": ".job-labels-box .labels-tag:nth-of-type(1)",
+        "edu_text": ".job-labels-box .labels-tag:nth-of-type(2)",
+    }
 }
 
 
@@ -110,19 +124,54 @@ def crawl_jobs(
 
 
 def _parse_selector_overrides(selector_items: list[str] | None) -> dict[str, str]:
-    selectors = dict(DEFAULT_SELECTORS)
+    selectors: dict[str, str] = {}
     for item in selector_items or []:
         if "=" not in item:
-            raise ValueError(f"Invalid selector override: {item}. Use key=css_selector")
+            raise ConfigValidationError(
+                f"Invalid selector override: {item}. Use key=css_selector"
+            )
         key, selector = item.split("=", 1)
         key = key.strip()
         selector = selector.strip()
-        if key not in selectors:
-            valid_keys = ", ".join(sorted(selectors))
-            raise ValueError(f"Unknown selector key '{key}'. Valid keys: {valid_keys}")
+        if key not in DEFAULT_SELECTORS:
+            valid_keys = ", ".join(sorted(DEFAULT_SELECTORS))
+            raise ConfigValidationError(f"Unknown selector key '{key}'. Valid keys: {valid_keys}")
         if not selector:
-            raise ValueError(f"Selector for key '{key}' cannot be empty.")
+            raise ConfigValidationError(f"Selector for key '{key}' cannot be empty.")
         selectors[key] = selector
+    return selectors
+
+
+def _validate_selector_map(selector_map: dict[str, Any] | None) -> dict[str, str]:
+    if selector_map is None:
+        return {}
+    if not isinstance(selector_map, dict):
+        raise ConfigValidationError("crawl.selectors must be a mapping/object.")
+    out: dict[str, str] = {}
+    for key, value in selector_map.items():
+        if key not in DEFAULT_SELECTORS:
+            valid_keys = ", ".join(sorted(DEFAULT_SELECTORS))
+            raise ConfigValidationError(f"Unknown selector key '{key}'. Valid keys: {valid_keys}")
+        if not isinstance(value, str) or not value.strip():
+            raise ConfigValidationError(f"Selector for key '{key}' must be a non-empty string.")
+        out[key] = value.strip()
+    return out
+
+
+def resolve_selectors(
+    *,
+    seed_url: str,
+    selector_items: list[str] | None = None,
+    config_selectors: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    selectors = dict(DEFAULT_SELECTORS)
+    host = urlparse(seed_url).netloc.lower()
+    for domain, preset in SITE_SELECTOR_PRESETS.items():
+        if domain in host:
+            selectors.update(preset)
+            break
+    selectors.update(_validate_selector_map(config_selectors))
+    selectors.update(_parse_selector_overrides(selector_items))
     return selectors
 
 
@@ -136,22 +185,27 @@ def write_raw_csv(df: pd.DataFrame, output_path: str | Path) -> Path:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Crawl JD data from website into raw CSV.")
     parser.add_argument(
+        "--config",
+        required=False,
+        help="Optional app config YAML path. Section: crawl.",
+    )
+    parser.add_argument(
         "--seed-url",
-        required=True,
+        required=False,
         help="Seed URL. Use {page} placeholder or a URL where ?page= is acceptable.",
     )
-    parser.add_argument("--pages", type=int, default=1, help="How many pages to crawl.")
-    parser.add_argument("--output", required=True, help="Output raw CSV path.")
-    parser.add_argument("--sleep-sec", type=float, default=1.0, help="Sleep between pages.")
-    parser.add_argument("--timeout-sec", type=float, default=20.0, help="HTTP timeout per request.")
+    parser.add_argument("--pages", type=int, default=None, help="How many pages to crawl.")
+    parser.add_argument("--output", required=False, help="Output raw CSV path.")
+    parser.add_argument("--sleep-sec", type=float, default=None, help="Sleep between pages.")
+    parser.add_argument("--timeout-sec", type=float, default=None, help="HTTP timeout per request.")
     parser.add_argument(
         "--selector",
         action="append",
         default=[],
-        help="Override selector in key=css format; can be repeated.",
+        help="Override selector in key=css format; can be repeated. Priority is CLI > config > site preset.",
     )
     parser.add_argument(
-        "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
+        "--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"]
     )
     return parser
 
@@ -163,11 +217,16 @@ def run_crawler(
     sleep_sec: float,
     timeout_sec: float,
     selector_items: list[str] | None = None,
+    config_selectors: dict[str, Any] | None = None,
 ) -> Path:
     if pages < 1:
         raise ValueError(f"pages must be >= 1, got {pages}")
 
-    selectors = _parse_selector_overrides(selector_items)
+    selectors = resolve_selectors(
+        seed_url=seed_url,
+        selector_items=selector_items,
+        config_selectors=config_selectors,
+    )
     df = crawl_jobs(
         seed_url=seed_url,
         pages=pages,
@@ -183,17 +242,33 @@ def run_crawler(
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
-    setup_logging(args.log_level)
-    run_crawler(
-        seed_url=args.seed_url,
-        pages=args.pages,
-        output_path=args.output,
-        sleep_sec=args.sleep_sec,
-        timeout_sec=args.timeout_sec,
-        selector_items=args.selector,
-    )
+    try:
+        resolved = resolve_section_config(
+            "crawl",
+            app_config_path=args.config,
+            cli_values={
+                "seed_url": args.seed_url,
+                "pages": args.pages,
+                "output": args.output,
+                "sleep_sec": args.sleep_sec,
+                "timeout_sec": args.timeout_sec,
+                "log_level": args.log_level,
+            },
+            required_keys={"seed_url", "output"},
+        )
+        setup_logging(str(resolved.get("log_level", "INFO")))
+        run_crawler(
+            seed_url=str(resolved["seed_url"]),
+            pages=int(resolved.get("pages", 1)),
+            output_path=str(resolved["output"]),
+            sleep_sec=float(resolved.get("sleep_sec", 1.0)),
+            timeout_sec=float(resolved.get("timeout_sec", 20.0)),
+            selector_items=args.selector,
+            config_selectors=resolved.get("selectors"),
+        )
+    except ConfigValidationError as exc:
+        raise SystemExit(f"Configuration error: {exc}") from exc
 
 
 if __name__ == "__main__":
     main()
-

@@ -1,0 +1,4 @@
+url,title,company,city,publish_date,salary_text,exp_text,edu_text
+https://example.com/job/1,Data Engineer,Alpha,Shenzhen,2025-01-01,20-30K 13薪,3-5年,本科
+https://example.com/job/2,Data Analyst,Beta,Shanghai,2025-01-03,15-20K,1-3年,本科
+https://example.com/job/2,Data Analyst,Beta,Shanghai,2025-01-03,15-20K,1-3年,本科

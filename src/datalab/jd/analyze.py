@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 
+from datalab.config import ConfigValidationError, resolve_section_config
 from datalab.logging_utils import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -253,10 +254,11 @@ def generate_jd_market_report(input_path: str | Path, output_path: str | Path) -
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate JD market analysis report from parquet.")
-    parser.add_argument("--input", required=True, help="Input cleaned parquet path.")
-    parser.add_argument("--output", required=True, help="Output markdown report path.")
+    parser.add_argument("--config", required=False, help="Optional app config YAML path.")
+    parser.add_argument("--input", required=False, help="Input cleaned parquet path.")
+    parser.add_argument("--output", required=False, help="Output markdown report path.")
     parser.add_argument(
-        "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
+        "--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"]
     )
     return parser
 
@@ -264,8 +266,21 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
-    setup_logging(args.log_level)
-    generate_jd_market_report(args.input, args.output)
+    try:
+        resolved = resolve_section_config(
+            "analyze",
+            app_config_path=args.config,
+            cli_values={
+                "input": args.input,
+                "output": args.output,
+                "log_level": args.log_level,
+            },
+            required_keys={"input", "output"},
+        )
+        setup_logging(str(resolved.get("log_level", "INFO")))
+        generate_jd_market_report(str(resolved["input"]), str(resolved["output"]))
+    except ConfigValidationError as exc:
+        raise SystemExit(f"Configuration error: {exc}") from exc
 
 
 if __name__ == "__main__":

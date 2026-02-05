@@ -7,6 +7,11 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from datalab.clean import run_pipeline
+from datalab.config import (
+    ConfigValidationError,
+    load_schema_config,
+    resolve_section_config,
+)
 from datalab.jd.analyze import generate_jd_market_report
 from datalab.jd.crawl import crawl_jobs, write_raw_csv
 from datalab.logging_utils import setup_logging
@@ -82,7 +87,8 @@ def run_one_click(
     write_raw_csv(raw_df, raw_csv_path)
     logger.info("Crawled raw rows: %s", len(raw_df))
 
-    run_pipeline(str(raw_csv_path), str(out_dir), config_path=config_path, topk=topk)
+    schema = load_schema_config(config_path)
+    run_pipeline(str(raw_csv_path), str(out_dir), schema=schema, topk=topk)
     generate_jd_market_report(cleaned_parquet_path, market_report_path)
 
     return {
@@ -97,23 +103,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="One-click JD pipeline: crawl from URL, clean, and generate analysis report."
     )
-    parser.add_argument("--url", required=True, help="JD list URL (currently supports liepin.com).")
-    parser.add_argument("--pages", type=int, default=1, help="How many pages to crawl.")
+    parser.add_argument("--app-config", required=False, help="Optional app config YAML path.")
+    parser.add_argument("--url", required=False, help="JD list URL (currently supports liepin.com).")
+    parser.add_argument("--pages", type=int, default=None, help="How many pages to crawl.")
     parser.add_argument(
         "--output-dir",
-        default="data/oneclick",
+        default=None,
         help="Output directory for raw data, cleaned parquet and reports.",
     )
-    parser.add_argument("--sleep-sec", type=float, default=1.0, help="Sleep seconds between pages.")
-    parser.add_argument("--timeout-sec", type=float, default=20.0, help="HTTP timeout per request.")
+    parser.add_argument("--sleep-sec", type=float, default=None, help="Sleep seconds between pages.")
+    parser.add_argument("--timeout-sec", type=float, default=None, help="HTTP timeout per request.")
     parser.add_argument(
         "--config",
         default=None,
         help="Optional clean config YAML. Leave empty for liepin one-click default flow.",
     )
-    parser.add_argument("--topk", type=int, default=5, help="Top K values in quality report.")
+    parser.add_argument("--topk", type=int, default=None, help="Top K values in quality report.")
     parser.add_argument(
-        "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
+        "--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"]
     )
     return parser
 
@@ -121,18 +128,35 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
-    setup_logging(args.log_level)
-    outputs = run_one_click(
-        url=args.url,
-        pages=args.pages,
-        output_dir=args.output_dir,
-        sleep_sec=args.sleep_sec,
-        timeout_sec=args.timeout_sec,
-        config_path=args.config,
-        topk=args.topk,
-    )
-    for key, path in outputs.items():
-        logger.info("%s: %s", key, path)
+    try:
+        resolved = resolve_section_config(
+            "oneclick",
+            app_config_path=args.app_config,
+            cli_values={
+                "url": args.url,
+                "pages": args.pages,
+                "output_dir": args.output_dir,
+                "sleep_sec": args.sleep_sec,
+                "timeout_sec": args.timeout_sec,
+                "topk": args.topk,
+                "log_level": args.log_level,
+            },
+            required_keys={"url"},
+        )
+        setup_logging(str(resolved.get("log_level", "INFO")))
+        outputs = run_one_click(
+            url=str(resolved["url"]),
+            pages=int(resolved.get("pages", 1)),
+            output_dir=str(resolved.get("output_dir", "data/oneclick")),
+            sleep_sec=float(resolved.get("sleep_sec", 1.0)),
+            timeout_sec=float(resolved.get("timeout_sec", 20.0)),
+            config_path=args.config,
+            topk=int(resolved.get("topk", 5)),
+        )
+        for key, path in outputs.items():
+            logger.info("%s: %s", key, path)
+    except ConfigValidationError as exc:
+        raise SystemExit(f"Configuration error: {exc}") from exc
 
 
 if __name__ == "__main__":
