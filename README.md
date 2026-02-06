@@ -1,17 +1,17 @@
 # DataLab
 
-DataLab 是一个招聘数据流水线项目，支持：
-- 抓取职位数据
-- 清洗并结构化字段
-- 生成质量与市场分析报告
+DataLab is a job-data pipeline project that supports:
+- crawling job listings
+- cleaning and structuring JD fields
+- generating quality and market reports
 
-当前命令（保持兼容）：
+Compatible CLI commands:
 - `python -m datalab.jd.crawl`
 - `python -m datalab.clean`
 - `python -m datalab.jd.analyze`
 - `python -m datalab.jd.oneclick`
 
-## 快速开始
+## Quickstart
 
 ```bash
 python -m venv .venv
@@ -19,64 +19,112 @@ python -m venv .venv
 pip install -e .[dev]
 ```
 
-## 一键运行
+## One-Click Run
 
 ```bash
 python -m datalab.jd.oneclick --url "https://www.liepin.com/career/dianziruanjian/" --pages 1 --output-dir data/oneclick_liepin
 ```
 
-输出文件：
+Outputs:
 - `raw_crawled.csv`
 - `cleaned.parquet`
-- `metrics.json`（PR2 新增）
-- `data_quality_report.md`（含 metrics 摘要）
+- `metrics.json`
+- `data_quality_report.md`
 - `jd_market_report.md`
 
-## 配置系统（PR1）
+## Config System (PR1)
 
-- 默认配置：`config/config.yaml`
-- 环境变量样例：`.env.example`
-- 优先级：`config.yaml < env < CLI`
+- Default config: `config/config.yaml`
+- Env sample: `.env.example`
+- Priority: `config.yaml < env < CLI`
 
-## 爬虫选择器（已修复猎聘 0 条问题）
+## Crawl Selector Priority
 
-`crawl` 选择器优先级：
-1. CLI：`--selector key=value`
-2. 配置：`config/config.yaml` -> `crawl.selectors`
-3. 内置站点预设（当前含 `liepin.com`）
-4. 通用默认值
+For `crawl`, selector priority is:
+1. CLI: `--selector key=value`
+2. Config: `config/config.yaml` -> `crawl.selectors`
+3. Built-in site preset (`liepin.com`)
+4. Generic defaults
 
-## Metrics（PR2）
+## Metrics (PR2)
 
-每次 `clean` 运行会输出 `metrics.json`，包含：
+Each `clean` run writes `metrics.json` with:
 - `parse_rate`
-- `missing_rate`（每个关键列）
+- `missing_rate` per key column
 - `negotiable_rate`
 - `duplicates_rate`
 - `row_count_raw` / `row_count_cleaned`
 
-并在 `data_quality_report.md` 里新增 `Metrics Summary` 小节。
+`data_quality_report.md` includes a `Metrics Summary` section.
 
-## 脚本清单（无 Makefile）
+## E2E Regression (PR3)
+
+Sample dataset: `data/sample/jobs_sample.csv`
+
+The test verifies:
+- output files exist after `clean -> analyze`
+- key columns exist in parquet
+- key report sections exist
+
+Run:
 
 ```bash
-# 1) 抓取（走配置）
+python -m pytest -q tests/test_e2e_pipeline.py
+```
+
+## API Skeleton + Async Job Store (PR4 + PR5)
+
+FastAPI endpoints:
+- `POST /pipeline/run`: enqueue a pipeline job and return `job_id`
+- `GET /pipeline/{job_id}`: query job status and output paths
+
+Job execution:
+- asynchronous via thread pool
+- status flow: `queued -> running -> succeeded/failed`
+- persisted in SQLite job store (`data/api_jobs.sqlite3` by default)
+
+Run API:
+
+```bash
+python -m uvicorn datalab.api.app:app --reload
+```
+
+API call example (PowerShell):
+
+```powershell
+$body = @{
+  input_path = "data/sample"
+  output_dir = "data/api_run"
+  topk = 5
+  generate_market_report = $true
+} | ConvertTo-Json
+
+$run = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/pipeline/run" -ContentType "application/json" -Body $body
+Invoke-RestMethod -Method Get -Uri ("http://127.0.0.1:8000/pipeline/" + $run.job_id)
+```
+
+## Script List (No Makefile)
+
+```bash
+# crawl (from config)
 python -m datalab.jd.crawl --config config/config.yaml
 
-# 2) 清洗
+# clean
 python -m datalab.clean --input data/raw/crawled_jobs.csv --output data/clean_liepin
 
-# 3) 分析
+# analyze
 python -m datalab.jd.analyze --input data/clean_liepin/cleaned.parquet --output data/clean_liepin/jd_market_report.md
 
-# 4) 一键
+# one-click
 python -m datalab.jd.oneclick --url "https://www.liepin.com/career/dianziruanjian/" --pages 1 --output-dir data/oneclick_liepin
 
-# 5) 测试
+# API tests
+python -m pytest -q tests/test_api.py
+
+# all tests
 python -m pytest -q
 ```
 
-## 示例数据
+## Sample Data
 
 - `data/sample/jobs_sample.csv`
-

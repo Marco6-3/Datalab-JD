@@ -7,7 +7,7 @@ clean:
 
 crawl:
   seed_url: https://www.liepin.com/career/dianziruanjian/pn{page}/
-  pages: 2
+  pages: 1
   output: data/raw/crawled_jobs.csv
   sleep_sec: 1.0
   timeout_sec: 20.0

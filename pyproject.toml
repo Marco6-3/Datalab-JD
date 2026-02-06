@@ -16,7 +16,9 @@ dependencies = [
   "pyyaml>=6.0",
   "openpyxl>=3.1",
   "requests>=2.32",
-  "beautifulsoup4>=4.12"
+  "beautifulsoup4>=4.12",
+  "fastapi>=0.111",
+  "uvicorn>=0.30"
 ]
 
 [project.optional-dependencies]
