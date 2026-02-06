@@ -103,6 +103,26 @@ $run = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/pipeline/run" 
 Invoke-RestMethod -Method Get -Uri ("http://127.0.0.1:8000/pipeline/" + $run.job_id)
 ```
 
+## Docker (PR6)
+
+Build image:
+
+```bash
+docker build -t datalab-api:latest .
+```
+
+Run API container:
+
+```bash
+docker run --rm -p 8000:8000 datalab-api:latest
+```
+
+Optional: persist API job DB and outputs to host:
+
+```bash
+docker run --rm -p 8000:8000 -v ${PWD}/data:/app/data datalab-api:latest
+```
+
 ## Script List (No Makefile)
 
 ```bash
