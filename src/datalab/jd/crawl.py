@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
@@ -17,6 +18,7 @@ from datalab.logging_utils import setup_logging
 logger = logging.getLogger(__name__)
 
 RAW_COLUMNS = [
+    "fetched_at",
     "url",
     "title",
     "company",
@@ -79,10 +81,12 @@ def _select_url(card: Tag, selector: str, page_url: str) -> str:
 def extract_jobs_from_html(html: str, page_url: str, selectors: dict[str, str]) -> list[dict[str, str]]:
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.select(selectors["card"])
+    fetched_at = datetime.now(timezone.utc).isoformat()
     rows: list[dict[str, str]] = []
     for card in cards:
         rows.append(
             {
+                "fetched_at": fetched_at,
                 "url": _select_url(card, selectors["url"], page_url),
                 "title": _select_text(card, selectors["title"]),
                 "company": _select_text(card, selectors["company"]),

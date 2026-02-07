@@ -20,3 +20,7 @@ data/oneclick_*/cleaned.parquet
 data/oneclick_*/data_quality_report.md
 data/oneclick_*/jd_market_report.md
 data/oneclick_*/metrics.json
+data/analytics/*.duckdb
+data/analytics/*.md
+data/api_jobs.sqlite3
+data/api_run/

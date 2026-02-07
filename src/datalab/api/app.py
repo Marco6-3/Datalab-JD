@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from datalab.api.job_store import SQLiteJobStore
 from datalab.clean import run_pipeline
-from datalab.config import load_schema_config
+from datalab.config import load_app_config, load_schema_config
 from datalab.jd.analyze import generate_jd_market_report
 from datalab.logging_utils import setup_logging
 
@@ -67,11 +67,15 @@ def _run_pipeline_job(payload: PipelineRunRequest) -> dict[str, str]:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     schema = load_schema_config(payload.schema_config_path, payload.app_config_path)
+    app_config = load_app_config(payload.app_config_path)
+    clean_cfg = app_config.get("clean", {}) if isinstance(app_config.get("clean"), dict) else {}
+    skill_dictionary = clean_cfg.get("skill_dictionary")
     run_pipeline(
         input_path=payload.input_path,
         output_path=str(output_dir),
         schema=schema,
         topk=payload.topk,
+        skill_dictionary=skill_dictionary if isinstance(skill_dictionary, dict) else None,
     )
 
     outputs: dict[str, str] = {

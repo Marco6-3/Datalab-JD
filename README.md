@@ -1,17 +1,14 @@
 # DataLab
 
-DataLab is a job-data pipeline project that supports:
-- crawling job listings
-- cleaning and structuring JD fields
-- generating quality and market reports
+DataLab is a practical JD data pipeline with CLI, API, and dashboard:
+- crawl job listings
+- clean and enrich JD data
+- analyze market trends
+- serve pipeline jobs through FastAPI
+- query analytics in DuckDB
+- visualize results in Streamlit
 
-Compatible CLI commands:
-- `python -m datalab.jd.crawl`
-- `python -m datalab.clean`
-- `python -m datalab.jd.analyze`
-- `python -m datalab.jd.oneclick`
-
-## Quickstart
+## Quickstart CLI
 
 ```bash
 python -m venv .venv
@@ -19,77 +16,29 @@ python -m venv .venv
 pip install -e .[dev]
 ```
 
-## One-Click Run
+Run one-click:
 
 ```bash
 python -m datalab.jd.oneclick --url "https://www.liepin.com/career/dianziruanjian/" --pages 1 --output-dir data/oneclick_liepin
 ```
 
-Outputs:
-- `raw_crawled.csv`
-- `cleaned.parquet`
-- `metrics.json`
-- `data_quality_report.md`
-- `jd_market_report.md`
-
-## Config System (PR1)
-
-- Default config: `config/config.yaml`
-- Env sample: `.env.example`
-- Priority: `config.yaml < env < CLI`
-
-## Crawl Selector Priority
-
-For `crawl`, selector priority is:
-1. CLI: `--selector key=value`
-2. Config: `config/config.yaml` -> `crawl.selectors`
-3. Built-in site preset (`liepin.com`)
-4. Generic defaults
-
-## Metrics (PR2)
-
-Each `clean` run writes `metrics.json` with:
-- `parse_rate`
-- `missing_rate` per key column
-- `negotiable_rate`
-- `duplicates_rate`
-- `row_count_raw` / `row_count_cleaned`
-
-`data_quality_report.md` includes a `Metrics Summary` section.
-
-## E2E Regression (PR3)
-
-Sample dataset: `data/sample/jobs_sample.csv`
-
-The test verifies:
-- output files exist after `clean -> analyze`
-- key columns exist in parquet
-- key report sections exist
-
-Run:
+Run step by step:
 
 ```bash
-python -m pytest -q tests/test_e2e_pipeline.py
+python -m datalab.jd.crawl --config config/config.yaml
+python -m datalab.clean --input data/raw/crawled_jobs.csv --output data/clean_liepin
+python -m datalab.jd.analyze --input data/clean_liepin/cleaned.parquet --output data/clean_liepin/jd_market_report.md
 ```
 
-## API Skeleton + Async Job Store (PR4 + PR5)
+## Quickstart API
 
-FastAPI endpoints:
-- `POST /pipeline/run`: enqueue a pipeline job and return `job_id`
-- `GET /pipeline/{job_id}`: query job status and output paths
-
-Job execution:
-- asynchronous via thread pool
-- status flow: `queued -> running -> succeeded/failed`
-- persisted in SQLite job store (`data/api_jobs.sqlite3` by default)
-
-Run API:
+Start API server:
 
 ```bash
 python -m uvicorn datalab.api.app:app --reload
 ```
 
-API call example (PowerShell):
+Call API (PowerShell):
 
 ```powershell
 $body = @{
@@ -103,48 +52,112 @@ $run = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/pipeline/run" 
 Invoke-RestMethod -Method Get -Uri ("http://127.0.0.1:8000/pipeline/" + $run.job_id)
 ```
 
-## Docker (PR6)
+Job status flow:
+- `queued`
+- `running`
+- `succeeded` or `failed`
 
-Build image:
+Jobs are persisted in SQLite (`data/api_jobs.sqlite3` by default).
+
+## Quickstart Dashboard
+
+Build DuckDB first:
+
+```bash
+python -m datalab.db build --input data/clean_liepin/cleaned.parquet --output data/analytics/jobs.duckdb
+```
+
+Run Streamlit dashboard:
+
+```bash
+python -m streamlit run src/datalab/dashboard/app.py
+```
+
+Dashboard can read from:
+- DuckDB table `jd_cleaned`
+- fallback parquet path
+
+## Docker
+
+Build:
 
 ```bash
 docker build -t datalab-api:latest .
 ```
 
-Run API container:
+Run API:
 
 ```bash
 docker run --rm -p 8000:8000 datalab-api:latest
 ```
 
-Optional: persist API job DB and outputs to host:
+Persist output and job DB to host:
 
 ```bash
 docker run --rm -p 8000:8000 -v ${PWD}/data:/app/data datalab-api:latest
 ```
 
-## Script List (No Makefile)
+## Config
+
+Default file: `config/config.yaml`
+
+Config priority:
+- `config.yaml`
+- env override (`.env.example`)
+- CLI args
+
+Crawler selector priority:
+- CLI `--selector key=value`
+- `crawl.selectors` in config
+- built-in site preset (`liepin.com`)
+- generic defaults
+
+## Outputs
+
+`clean` output:
+- `cleaned.parquet`
+- `metrics.json`
+- `data_quality_report.md`
+
+`analyze` output:
+- `jd_market_report.md`
+
+Top jobs include provenance fields:
+- `url`
+- `fetched_at`
+- `raw_salary_text`
+
+Data lineage document: `provenance.md`
+
+## DuckDB Queries
+
+`python -m datalab.db build ...` also writes query examples:
+- `data/analytics/example_queries.md`
+
+## Skill Tagging
+
+Rule-based tagging is applied during clean step:
+- output columns: `skill_tags`, `skill_tag_count`
+- dictionary is configurable via `clean.skill_dictionary` in `config/config.yaml`
+- report and dashboard include skill heatmap by city x experience
+
+## Tests
+
+Run all:
 
 ```bash
-# crawl (from config)
-python -m datalab.jd.crawl --config config/config.yaml
-
-# clean
-python -m datalab.clean --input data/raw/crawled_jobs.csv --output data/clean_liepin
-
-# analyze
-python -m datalab.jd.analyze --input data/clean_liepin/cleaned.parquet --output data/clean_liepin/jd_market_report.md
-
-# one-click
-python -m datalab.jd.oneclick --url "https://www.liepin.com/career/dianziruanjian/" --pages 1 --output-dir data/oneclick_liepin
-
-# API tests
-python -m pytest -q tests/test_api.py
-
-# all tests
 python -m pytest -q
+```
+
+Focused:
+
+```bash
+python -m pytest -q tests/test_e2e_pipeline.py
+python -m pytest -q tests/test_api.py
+python -m pytest -q tests/test_duckdb_build.py
 ```
 
 ## Sample Data
 
 - `data/sample/jobs_sample.csv`
+

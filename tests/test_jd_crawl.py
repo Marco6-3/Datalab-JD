@@ -42,6 +42,7 @@ def test_extract_jobs_from_html_maps_required_fields():
     assert len(rows) == 1
     row = rows[0]
     assert row["url"] == "https://example.com/jobs/1"
+    assert row["fetched_at"]
     assert row["title"] == "Data Engineer"
     assert row["company"] == "ACME"
     assert row["city"] == "Shenzhen"

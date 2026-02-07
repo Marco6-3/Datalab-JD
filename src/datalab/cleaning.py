@@ -12,6 +12,7 @@ from pandas.api.types import (
 
 from datalab.exceptions import DataValidationError
 from datalab.jd_features import extract_jd_features
+from datalab.skill_tags import extract_skill_tags
 
 MISSING_LIKE = {"", " ", "NA", "N/A", "null", "NULL", "None", "none"}
 
@@ -159,11 +160,20 @@ def apply_schema(df: pd.DataFrame, schema: dict[str, Any] | None) -> pd.DataFram
     return out
 
 
-def clean_dataframe(df: pd.DataFrame, schema: dict[str, Any] | None = None) -> pd.DataFrame:
+def clean_dataframe(
+    df: pd.DataFrame,
+    schema: dict[str, Any] | None = None,
+    skill_dictionary: dict[str, list[str]] | None = None,
+) -> pd.DataFrame:
     out = normalize_missing_values(df)
+    if "salary_text" in out.columns and "raw_salary_text" not in out.columns:
+        out["raw_salary_text"] = out["salary_text"]
+    if "fetched_at" not in out.columns:
+        out["fetched_at"] = "UNKNOWN"
     out = infer_object_types(out)
     out = fill_missing_values(out, skip_columns={"url"})
     out = extract_jd_features(out)
+    out = extract_skill_tags(out, skill_dictionary=skill_dictionary)
     out = remove_duplicates(out)
     out = clip_outliers_iqr(out)
     out = apply_schema(out, schema)

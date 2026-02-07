@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from datalab.jd.analyze import (
+    build_jd_market_report,
     bucket_experience,
     city_exp_summary,
     compute_mid_k,
@@ -99,3 +100,31 @@ def test_generate_report_raises_on_missing_required_fields(tmp_path: Path):
 
     with pytest.raises(ValueError, match="Missing required columns"):
         generate_jd_market_report(in_path, out_path)
+
+
+def test_top20_contains_provenance_fields():
+    df = pd.DataFrame(
+        [
+            {
+                "city": "SZ",
+                "salary_min_k": 20,
+                "salary_max_k": 30,
+                "salary_months": 12,
+                "salary_is_negotiable": False,
+                "exp_min_years": 1,
+                "exp_max_years": 3,
+                "url": "https://example.com/job/1",
+                "title": "Data Engineer",
+                "company": "ACME",
+                "fetched_at": "2026-01-01T00:00:00+00:00",
+                "raw_salary_text": "20-30K",
+                "skill_tags": "python|sql",
+            }
+        ]
+    )
+    report = build_jd_market_report(df)
+    assert "fetched_at" in report
+    assert "raw_salary_text" in report
+    assert "https://example.com/job/1" in report
+    assert "2026-01-01T00:00:00+00:00" in report
+    assert "20-30K" in report

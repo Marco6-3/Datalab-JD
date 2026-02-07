@@ -35,12 +35,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run_pipeline(input_path: str, output_path: str, schema: dict[str, object] | None, topk: int) -> None:
+def run_pipeline(
+    input_path: str,
+    output_path: str,
+    schema: dict[str, object] | None,
+    topk: int,
+    skill_dictionary: dict[str, list[str]] | None = None,
+) -> None:
     logger.info("Reading raw data from %s", input_path)
     raw_df = read_input_data(input_path)
     logger.info("Loaded %s rows and %s columns", len(raw_df), len(raw_df.columns))
 
-    cleaned = clean_dataframe(raw_df, schema=schema or {})
+    cleaned = clean_dataframe(raw_df, schema=schema or {}, skill_dictionary=skill_dictionary)
     out_dir = Path(output_path)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -74,11 +80,13 @@ def main() -> None:
         )
         setup_logging(str(resolved.get("log_level", "INFO")))
         schema = load_schema_config(args.schema_config or args.config, app_config_path=args.config)
+        skill_dictionary = resolved.get("skill_dictionary")
         run_pipeline(
             input_path=str(resolved["input"]),
             output_path=str(resolved["output"]),
             schema=schema,
             topk=int(resolved.get("topk", 5)),
+            skill_dictionary=skill_dictionary if isinstance(skill_dictionary, dict) else None,
         )
     except ConfigValidationError as exc:
         raise SystemExit(f"Configuration error: {exc}") from exc

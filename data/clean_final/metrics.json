@@ -1,0 +1,20 @@
+{
+  "row_count_raw": 3,
+  "row_count_cleaned": 2,
+  "parse_rate": 1.0,
+  "negotiable_rate": 0.0,
+  "duplicates_rate": 0.333333,
+  "missing_rate": {
+    "url": 0.0,
+    "title": 0.0,
+    "company": 0.0,
+    "city": 0.0,
+    "salary_min_k": 0.0,
+    "salary_max_k": 0.0,
+    "salary_months": 0.5,
+    "salary_is_negotiable": 0.0,
+    "exp_min_years": 0.0,
+    "exp_max_years": 0.0,
+    "edu_level": 0.0
+  }
+}

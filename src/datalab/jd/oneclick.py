@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from datalab.clean import run_pipeline
 from datalab.config import (
     ConfigValidationError,
+    load_app_config,
     load_schema_config,
     resolve_section_config,
 )
@@ -64,6 +65,7 @@ def run_one_click(
     timeout_sec: float,
     config_path: str | None,
     topk: int,
+    app_config_path: str | None = None,
 ) -> dict[str, Path]:
     if pages < 1:
         raise ValueError(f"pages must be >= 1, got {pages}")
@@ -88,7 +90,16 @@ def run_one_click(
     logger.info("Crawled raw rows: %s", len(raw_df))
 
     schema = load_schema_config(config_path)
-    run_pipeline(str(raw_csv_path), str(out_dir), schema=schema, topk=topk)
+    app_config = load_app_config(app_config_path)
+    clean_cfg = app_config.get("clean", {}) if isinstance(app_config.get("clean"), dict) else {}
+    skill_dictionary = clean_cfg.get("skill_dictionary")
+    run_pipeline(
+        str(raw_csv_path),
+        str(out_dir),
+        schema=schema,
+        topk=topk,
+        skill_dictionary=skill_dictionary if isinstance(skill_dictionary, dict) else None,
+    )
     generate_jd_market_report(cleaned_parquet_path, market_report_path)
 
     return {
@@ -151,6 +162,7 @@ def main() -> None:
             sleep_sec=float(resolved.get("sleep_sec", 1.0)),
             timeout_sec=float(resolved.get("timeout_sec", 20.0)),
             config_path=args.config,
+            app_config_path=args.app_config,
             topk=int(resolved.get("topk", 5)),
         )
         for key, path in outputs.items():

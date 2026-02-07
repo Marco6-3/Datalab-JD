@@ -18,7 +18,9 @@ dependencies = [
   "requests>=2.32",
   "beautifulsoup4>=4.12",
   "fastapi>=0.111",
-  "uvicorn>=0.30"
+  "uvicorn>=0.30",
+  "duckdb>=1.1",
+  "streamlit>=1.38"
 ]
 
 [project.optional-dependencies]

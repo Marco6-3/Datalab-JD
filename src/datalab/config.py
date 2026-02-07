@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 DEFAULT_APP_CONFIG_PATH = "config/config.yaml"
 VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR"}
-KNOWN_SECTIONS = {"clean", "crawl", "analyze", "oneclick"}
+KNOWN_SECTIONS = {"clean", "crawl", "analyze", "oneclick", "db", "dashboard", "api"}
 
 
 class ConfigValidationError(ValueError):

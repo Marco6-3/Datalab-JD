@@ -4,6 +4,19 @@ clean:
   topk: 5
   log_level: INFO
   schema: {}
+  skill_dictionary:
+    python:
+      - python
+      - py
+    sql:
+      - sql
+      - mysql
+      - postgres
+    spark:
+      - spark
+      - pyspark
+    airflow:
+      - airflow
 
 crawl:
   seed_url: https://www.liepin.com/career/dianziruanjian/pn{page}/
@@ -35,3 +48,16 @@ oneclick:
   timeout_sec: 20.0
   topk: 5
   log_level: INFO
+
+db:
+  input: data/clean/cleaned.parquet
+  output: data/analytics/jobs.duckdb
+  query_doc: data/analytics/example_queries.md
+  log_level: INFO
+
+dashboard:
+  duckdb_path: data/analytics/jobs.duckdb
+  parquet_path: data/clean/cleaned.parquet
+
+api:
+  job_db_path: data/api_jobs.sqlite3

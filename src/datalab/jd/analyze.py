@@ -165,6 +165,10 @@ def _render_table(headers: list[str], rows: list[list[Any]]) -> str:
 
 def build_jd_market_report(df: pd.DataFrame) -> str:
     work = df.copy()
+    if "raw_salary_text" not in work.columns:
+        work["raw_salary_text"] = work.get("salary_text", pd.Series(["UNKNOWN"] * len(work)))
+    if "fetched_at" not in work.columns:
+        work["fetched_at"] = "UNKNOWN"
     work["mid_k"] = work.apply(
         lambda row: compute_mid_k(
             row.get("salary_min_k"),
@@ -212,9 +216,30 @@ def build_jd_market_report(df: pd.DataFrame) -> str:
             row["title"],
             row["company"],
             row["url"],
+            row.get("fetched_at", "UNKNOWN"),
+            row.get("raw_salary_text", "UNKNOWN"),
         ]
         for idx, (_, row) in enumerate(top_jobs.iterrows())
     ]
+
+    skill_rows: list[list[Any]] = []
+    if "skill_tags" in work.columns:
+        skill = work[["city", "exp_bucket", "skill_tags"]].copy()
+        skill["skill_tags"] = skill["skill_tags"].fillna("").astype(str)
+        skill = skill.assign(skill_tag=skill["skill_tags"].str.split("|")).explode("skill_tag")
+        skill = skill[skill["skill_tag"].astype(str).str.len() > 0]
+        if not skill.empty:
+            skill_heat = (
+                skill.groupby(["city", "exp_bucket", "skill_tag"], dropna=False)
+                .size()
+                .reset_index(name="n_jobs")
+                .sort_values("n_jobs", ascending=False)
+                .head(50)
+            )
+            skill_rows = [
+                [row["city"], row["exp_bucket"], row["skill_tag"], int(row["n_jobs"])]
+                for _, row in skill_heat.iterrows()
+            ]
 
     lines = [
         "# JD Market Report",
@@ -233,7 +258,13 @@ def build_jd_market_report(df: pd.DataFrame) -> str:
         ),
         "",
         "## 3) Top20 High-Paying Jobs",
-        _render_table(["rank", "mid_k", "city", "title", "company", "url"], top_rows),
+        _render_table(
+            ["rank", "mid_k", "city", "title", "company", "url", "fetched_at", "raw_salary_text"],
+            top_rows,
+        ),
+        "",
+        "## 4) Skill Heatmap by City x Experience",
+        _render_table(["city", "exp_bucket", "skill_tag", "n_jobs"], skill_rows),
         "",
     ]
     return "\n".join(lines)
