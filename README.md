@@ -38,6 +38,19 @@ Start API server:
 python -m uvicorn datalab.api.app:app --reload
 ```
 
+Open Web UI:
+
+```text
+http://127.0.0.1:8000/
+```
+
+The home page can submit jobs directly and auto-poll status.
+If you prefer API docs, use:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
 Call API (PowerShell):
 
 ```powershell
@@ -50,6 +63,12 @@ $body = @{
 
 $run = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/pipeline/run" -ContentType "application/json" -Body $body
 Invoke-RestMethod -Method Get -Uri ("http://127.0.0.1:8000/pipeline/" + $run.job_id)
+```
+
+Open web report page for a finished job:
+
+```text
+http://127.0.0.1:8000/pipeline/<job_id>/view
 ```
 
 Job status flow:
@@ -129,6 +148,15 @@ Top jobs include provenance fields:
 
 Data lineage document: `provenance.md`
 
+## VSCode Report Reading Tips
+
+- Open Markdown preview: `Ctrl+Shift+V`
+- Open side-by-side preview: `Ctrl+K V`
+- New report layout includes:
+  - `Contents` section for quick navigation
+  - compact Top20 table plus provenance detail list
+  - metrics rendered as tables for easier scanning
+
 ## DuckDB Queries
 
 `python -m datalab.db build ...` also writes query examples:
@@ -160,4 +188,3 @@ python -m pytest -q tests/test_duckdb_build.py
 ## Sample Data
 
 - `data/sample/jobs_sample.csv`
-

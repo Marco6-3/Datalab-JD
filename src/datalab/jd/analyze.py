@@ -208,19 +208,28 @@ def build_jd_market_report(df: pd.DataFrame) -> str:
         .head(20)
         .reset_index(drop=True)
     )
-    top_rows = [
+    top_rows_compact = [
         [
             idx + 1,
             row["mid_k"],
             row["city"],
             row["title"],
             row["company"],
-            row["url"],
-            row.get("fetched_at", "UNKNOWN"),
-            row.get("raw_salary_text", "UNKNOWN"),
         ]
         for idx, (_, row) in enumerate(top_jobs.iterrows())
     ]
+    provenance_lines: list[str] = []
+    if top_jobs.empty:
+        provenance_lines.append("No data.")
+    else:
+        for idx, (_, row) in enumerate(top_jobs.iterrows()):
+            rank = idx + 1
+            url = row.get("url", "UNKNOWN")
+            fetched_at = row.get("fetched_at", "UNKNOWN")
+            raw_salary_text = row.get("raw_salary_text", "UNKNOWN")
+            provenance_lines.append(
+                f"- rank {rank}: url={url}; fetched_at={fetched_at}; raw_salary_text={raw_salary_text}"
+            )
 
     skill_rows: list[list[Any]] = []
     if "skill_tags" in work.columns:
@@ -244,12 +253,23 @@ def build_jd_market_report(df: pd.DataFrame) -> str:
     lines = [
         "# JD Market Report",
         "",
+        "## Contents",
+        "- [1) Sample Overview](#1-sample-overview)",
+        "- [2) City x Experience Table](#2-city-x-experience-table)",
+        "- [3) Top20 High-Paying Jobs](#3-top20-high-paying-jobs)",
+        "- [4) Skill Heatmap by City x Experience](#4-skill-heatmap-by-city-x-experience)",
+        "",
         "## 1) Sample Overview",
-        f"- total_jobs: {total_jobs}",
-        f"- unique_companies: {unique_companies}",
-        f"- unique_cities: {unique_cities}",
-        f"- jobs_with_salary_mid_k: {jobs_with_salary}",
-        f"- overall_negotiable_rate: {negotiable_rate:.4f}",
+        _render_table(
+            ["metric", "value"],
+            [
+                ["total_jobs", total_jobs],
+                ["unique_companies", unique_companies],
+                ["unique_cities", unique_cities],
+                ["jobs_with_salary_mid_k", jobs_with_salary],
+                ["overall_negotiable_rate", f"{negotiable_rate:.2%}"],
+            ],
+        ),
         "",
         "## 2) City x Experience Table",
         _render_table(
@@ -259,9 +279,12 @@ def build_jd_market_report(df: pd.DataFrame) -> str:
         "",
         "## 3) Top20 High-Paying Jobs",
         _render_table(
-            ["rank", "mid_k", "city", "title", "company", "url", "fetched_at", "raw_salary_text"],
-            top_rows,
+            ["rank", "mid_k", "city", "title", "company"],
+            top_rows_compact,
         ),
+        "",
+        "### 3.1 Provenance Details",
+        *provenance_lines,
         "",
         "## 4) Skill Heatmap by City x Experience",
         _render_table(["city", "exp_bucket", "skill_tag", "n_jobs"], skill_rows),

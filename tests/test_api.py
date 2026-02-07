@@ -67,6 +67,22 @@ def test_pipeline_api_happy_path(tmp_path: Path):
         assert Path(status_data["outputs"]["quality_report_md"]).exists()
         assert Path(status_data["outputs"]["market_report_md"]).exists()
 
+        view_resp = client.get(f"/pipeline/{run_data['job_id']}/view")
+        assert view_resp.status_code == 200
+        assert "DataLab Pipeline Report" in view_resp.text
+        assert "Data Quality Report" in view_resp.text
+        assert "JD Market Report" in view_resp.text
+
+
+def test_api_home_page_available(tmp_path: Path):
+    db_path = tmp_path / "jobs_home.sqlite3"
+    app = create_app(job_db_path=str(db_path))
+    with TestClient(app) as client:
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert "DataLab Web UI" in resp.text
+        assert "Run Pipeline" in resp.text
+
 
 def test_pipeline_api_failed_job_contains_error(tmp_path: Path):
     out_dir = tmp_path / "out_bad"
